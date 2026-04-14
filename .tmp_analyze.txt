@@ -1,0 +1,37 @@
+﻿Analyzing Epilogue-3-main...                                    
+
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:59:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:60:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:62:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:63:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:301:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:302:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:304:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\supabase_service.dart:305:7 - avoid_print
+   info - Statements in an if should be enclosed in a block - lib\domain\medication_data.dart:66:7 - curly_braces_in_flow_control_structures
+   info - Dangling library doc comment - lib\domain\symptom_data.dart:1:1 - dangling_library_doc_comments
+   info - Don't invoke 'print' in production code - lib\main.dart:18:3 - avoid_print
+   info - Statements in an if should be enclosed in a block - lib\presentation\care_address_screen.dart:141:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\presentation\care_address_screen.dart:148:7 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\presentation\medications_screen.dart:944:43 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\presentation\medications_screen.dart:1031:43 - curly_braces_in_flow_control_structures
+   info - Unnecessary use of multiple underscores - lib\presentation\medications_screen.dart:2259:39 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\presentation\observation_history_screen.dart:266:69 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\presentation\observation_history_screen.dart:266:73 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\presentation\observations_screen.dart:1330:35 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\presentation\observations_screen.dart:1330:39 - unnecessary_underscores
+   info - Use the '??' operator rather than '?:' when testing for 'null' - lib\presentation\reset_password_screen.dart:164:19 - prefer_if_null_operators
+   info - Don't use 'BuildContext's across async gaps - lib\presentation\skin_wounds_screen.dart:242:26 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\presentation\skin_wounds_screen.dart:243:21 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\presentation\skin_wounds_screen.dart:245:7 - use_build_context_synchronously
+   info - Unnecessary use of multiple underscores - lib\presentation\symptom_events_screen.dart:439:61 - unnecessary_underscores
+
+flutter : 25 issues found. (ran in 5.1s)
+At line:1 char:8
++ $out = flutter analyze 2>&1 | Out-String; $out | Out-File -FilePath . ...
++        ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (25 issues found. (ran in 5.1s):St 
+   ring) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+

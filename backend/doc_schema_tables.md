@@ -1,0 +1,329 @@
+## Table 1
+
+| Column | Purpose/Description |
+| --- | --- |
+| user_profile_id | Links to logged-in user (auth.users.id) |
+| full_name | Required user name |
+| preferred_name | Optional display name |
+| phone | Contact |
+| profile_pic | Image URL |
+| preferred_language | Language setting |
+| timezone | Time handling |
+| account_type | future use (admin/user/etc.) |
+| is_active | enable/disable account |
+| deleted_at | soft delete |
+| created_at | created time |
+| updated_at | last updated |
+
+## Table 2
+
+| Column Name | Data Type | Constraints | Description |
+| --- | --- | --- | --- |
+| role_list_id | UUID | PK | Unique identifier for each role |
+| name | TEXT | NOT NULL, UNIQUE | Role name (fixed predefined values) |
+
+## Table 3
+
+| Column Name | Type | Constraints | Description |
+| --- | --- | --- | --- |
+| hospice_agency_id | UUID | PK | Agency ID |
+| name | TEXT | NOT NULL | Agency name |
+| medicare_id | TEXT | UNIQUE | CMS ID |
+| npi | TEXT | UNIQUE | Provider ID |
+| phone | TEXT |  | Phone |
+| fax | TEXT |  | Fax |
+| address_line1 | TEXT |  | Address |
+| address_line2 | TEXT |  | Address |
+| city | TEXT |  | City |
+| state | CHAR(2) |  | State |
+| zip | TEXT |  | ZIP |
+| country | CHAR(2) | DEFAULT 'US' | Country |
+| website_url | TEXT |  | Website |
+| hope_compliance_enabled | BOOLEAN | DEFAULT false | Feature toggle |
+| deleted_at | TIMESTAMPTZ |  | Soft delete |
+| created_at | TIMESTAMPTZ | DEFAULT now() | Created |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | Updated |
+
+## Table 4
+
+| Column Name | Type | Constraints | Description |
+| --- | --- | --- | --- |
+| care_space_id | UUID | PK | Patient ID |
+| hospice_agency_id | UUID | FK (nullable) | Agency |
+| full_name | TEXT | NOT NULL | Patient name |
+| date_of_birth | DATE |  | DOB |
+| gender | TEXT |  | Gender |
+| preferred_language | TEXT |  | Language |
+| status | TEXT | DEFAULT 'active' | Patient status |
+| enrollment_date | DATE |  | Start care |
+| discharge_date | DATE |  | End care |
+| care_setting | TEXT |  | home / snf |
+| address_line1 | TEXT |  | Address |
+| address_line2 | TEXT |  | Address |
+| city | TEXT |  | City |
+| state | TEXT |  | State |
+| zip | TEXT |  | ZIP |
+| emergency_contact_name | TEXT |  | Contact |
+| emergency_contact_phone | TEXT |  | Phone |
+| dnr_on_file | BOOLEAN |  | DNR |
+| advance_directive_on_file | BOOLEAN |  | Directive |
+| deleted_at | TIMESTAMPTZ |  | Soft delete |
+| created_at | TIMESTAMPTZ | DEFAULT now() | Created |
+| updated_at | TIMESTAMPTZ | DEFAULT now() | Updated |
+
+## Table 5
+
+| Column | Type | Description |
+| --- | --- | --- |
+| patient_diagnosis_id | UUID | PK |
+| care_space_id | UUID | FK |
+| icd10_code | TEXT | Code |
+| description | TEXT | Diagnosis |
+| is_primary | BOOLEAN | Primary flag |
+| onset_date | DATE | Start |
+| noted_by_id | UUID | Who added |
+| created_at | TIMESTAMPTZ | Auto |
+| updated_at | TIMESTAMPTZ | Auto |
+
+## Table 6
+
+| Column Name | Type | Constraints |
+| --- | --- | --- |
+| care_team_member_id | UUID | PK |
+| care_space_id | UUID | FK → care_space, NOT NULL |
+| user_profile_id | UUID | FK → user_profile, NOT NULL |
+| role_list_id | UUID | FK → role_list |
+| is_primary | BOOLEAN | DEFAULT false |
+| is_active | BOOLEAN | DEFAULT true |
+| added_by | UUID | FK → user_profile |
+| created_at | TIMESTAMPTZ | DEFAULT now() |
+| updated_at | TIMESTAMPTZ | DEFAULT now() |
+| unique | — | (care_space_id, user_profile_id) |
+
+## Table 7
+
+| Column Name | Data Type | Constraints |
+| --- | --- | --- |
+| invite_code_id | UUID | PK |
+| care_space_id | UUID | FK → care_space, NOT NULL |
+| user_profile_id | UUID | FK → user_profile, NULLABLE |
+| role_list_id | UUID | FK → role_list |
+| invite_token | TEXT | NOT NULL, UNIQUE |
+| invite_email | TEXT | NOT NULL |
+| invited_at | TIMESTAMPTZ | DEFAULT now() |
+| accepted_at | TIMESTAMPTZ |  |
+| expires_at | TIMESTAMPTZ |  |
+| unique | — | (care_space_id, invite_email) |
+
+## Table 8
+
+| Column Name | Type | Constraints |
+| --- | --- | --- |
+| medication_id | UUID | PK |
+| care_space_id | UUID | FK |
+| medication_list_id | UUID | FK |
+| name | TEXT | optional custom |
+| frequency | TEXT | (NOT ENUM) |
+| notes | TEXT |  |
+| voice_note_url | TEXT |  |
+| prn_indication | TEXT |  |
+| ordered_by_name | TEXT |  |
+| ordered_date | DATE |  |
+| is_active | BOOLEAN | default true |
+| created_by | UUID | FK |
+| deleted_at | TIMESTAMPTZ |  |
+| created_at | TIMESTAMPTZ | default now() |
+| updated_at | TIMESTAMPTZ | default now() |
+
+## Table 9
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| medication_log_id | UUID | PK |
+| medication_id | UUID | FK |
+| care_space_id | UUID | FK |
+| administered_by_id | UUID | FK → user_profile |
+| administered_at | TIMESTAMPTZ |  |
+| notes | TEXT |  |
+| created_at | TIMESTAMPTZ | default now() |
+
+## Table 10
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| symptom_log_id | UUID | PK |
+| care_space_id | UUID | FK |
+| symptom_list_id | UUID | FK |
+| custom_name | TEXT | optional |
+| severity | SMALLINT | 0–10 |
+| observed_at | TIMESTAMPTZ |  |
+| notes | TEXT |  |
+| voice_note_url | TEXT |  |
+| created_by | UUID | FK → user_profile |
+| created_at | TIMESTAMPTZ | default now() |
+
+## Table 11
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| skin_wound_log_id | UUID | PK |
+| care_space_id | UUID | FK |
+| skin_wound_list_id | UUID | FK |
+| skin_treatment_list_id | UUID | FK |
+| content_image_url | TEXT |  |
+| observed_at | TIMESTAMPTZ |  |
+| notes | TEXT |  |
+| voice_note_url | TEXT |  |
+| created_by | UUID | FK → user_profile |
+| created_at | TIMESTAMPTZ | default now() |
+
+## Table 12
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| nurse_visit_id | UUID | PK |
+| care_space_id | UUID | FK |
+| nurse_id | UUID | FK → user_profile |
+| scheduled_at | TIMESTAMPTZ | planned |
+| arrived_at | TIMESTAMPTZ | actual |
+| departed_at | TIMESTAMPTZ | end |
+| visit_type | TEXT |  |
+| notes | TEXT |  |
+| voice_note_url | TEXT |  |
+| created_by | UUID | FK |
+| created_at | TIMESTAMPTZ | default now() |
+| updated_at | TIMESTAMPTZ | default now() |
+
+## Table 13
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| care_plan_id | UUID | PK |
+| care_space_id | UUID | FK |
+| version | SMALLINT |  |
+| is_current | BOOLEAN | default true |
+| effective_date | DATE |  |
+| goals | TEXT |  |
+| special_instructions | TEXT |  |
+| created_by | UUID | FK |
+| created_at | TIMESTAMPTZ | default now() |
+| updated_at | TIMESTAMPTZ | default now() |
+
+## Table 14
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| quick_notes_id | UUID | PK |
+| care_space_id | UUID | FK |
+| user_profile_id | UUID | FK → user_profile |
+| content_text | TEXT | NOT NULL |
+| content_image_url | TEXT |  |
+| voice_note_url | TEXT |  |
+| visibility | TEXT | private / care_team |
+| is_pinned | BOOLEAN | default false |
+| created_at | TIMESTAMPTZ | default now() |
+| updated_at | TIMESTAMPTZ | default now() |
+| deleted_at | TIMESTAMPTZ |  |
+
+## Table 15
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| quick_notes_id | UUID | PK |
+| care_space_id | UUID | FK |
+| user_profile_id | UUID | FK → user_profile |
+| content_text | TEXT | NOT NULL |
+| content_image_url | TEXT |  |
+| voice_note_url | TEXT |  |
+| visibility | TEXT | private / care_team |
+| is_pinned | BOOLEAN | default false |
+| created_at | TIMESTAMPTZ | default now() |
+| updated_at | TIMESTAMPTZ | default now() |
+| deleted_at | TIMESTAMPTZ |  |
+
+## Table 16
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| notification_id | UUID | PK |
+| user_profile_id | UUID | FK |
+| channel | TEXT | push/sms/email |
+| event_type | TEXT |  |
+| title | TEXT |  |
+| body | TEXT |  |
+| status | TEXT |  |
+| sent_at | TIMESTAMPTZ |  |
+| read_at | TIMESTAMPTZ |  |
+| data | JSONB | optional |
+| created_at | TIMESTAMPTZ | default now() |
+
+## Table 17
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| medication_list_id | UUID | PK |
+| name | TEXT |  |
+| brand_name | TEXT |  |
+| strength | TEXT |  |
+| form | TEXT |  |
+| route | TEXT |  |
+| is_active | BOOLEAN | default true |
+
+## Table 18
+
+| Column Name | Type | Constraints | Notes/Description |
+| --- | --- | --- | --- |
+| symptom_list_id | UUID | PK |  |
+| name | TEXT | UNIQUE |  |
+| is_hope | BOOLEAN | default false |  |
+
+## Table 19
+
+| Column | Type | Description |
+| --- | --- | --- |
+| skin_wound_LIST_id | UUID (PK) | Primary key |
+| name | TEXT | Symptom name (e.g., Pain, Nausea, Anxiety) |
+
+## Table 20
+
+| Column | Type | Description |
+| --- | --- | --- |
+| skin_treatment_LIST_id | UUID (PK) | Primary key |
+| name | TEXT NOT NULL, UNIQUE | Symptom name (e.g., Pain, Nausea, Anxiety) |
+
+## Table 21
+
+| Column Name | Type | Notes/Description |
+| --- | --- | --- |
+| message_id | UUID | PK |
+| conversation_id | UUID | FK |
+| sender_id | UUID | FK → user_profile |
+| text_message | TEXT | nullable |
+| message_type | TEXT | text/image/file/system |
+| is_system_message | BOOLEAN | default false |
+| attachment_storage_path | TEXT |  |
+| created_at | TIMESTAMPTZ | default now() |
+
+## Table 22
+
+| Column Name | Type | Description |
+| --- | --- | --- |
+| entitlement_id | UUID | PK |
+| role_list_id | UUID | FK → role_list |
+| can_view_care_space | BOOLEAN |  |
+| can_edit_care_space | BOOLEAN |  |
+| can_log_medication | BOOLEAN |  |
+| can_edit_medication | BOOLEAN |  |
+| can_view_medication | BOOLEAN |  |
+| can_log_symptom | BOOLEAN |  |
+| can_edit_symptom | BOOLEAN |  |
+| can_log_skin_wound | BOOLEAN |  |
+| can_view_skin_wound | BOOLEAN |  |
+| can_edit_skin_wound | BOOLEAN |  |
+| can_view_moment | BOOLEAN |  |
+| can_post_moment | BOOLEAN |  |
+| can_write_notes | BOOLEAN |  |
+| can_view_notes | BOOLEAN |  |
+| can_message | BOOLEAN |  |
+| created_at | TIMESTAMPTZ |  |
+| updated_at | TIMESTAMPTZ |  |

@@ -1,0 +1,254 @@
+# ============================================================
+# Epilogue App – Docker Compose
+# Brings up: Supabase local stack  +  FastAPI backend
+# ============================================================
+#
+# Usage:
+#   docker compose up -d            # start everything
+#   docker compose logs -f backend  # watch backend logs
+#   docker compose down -v          # stop and remove volumes
+#
+# The Supabase Dashboard is at  http://localhost:54323
+# The FastAPI backend is at      http://localhost:8000
+# The Supabase API is at         http://localhost:54321
+# Postgres is at                 localhost:54322
+# ============================================================
+
+name: epilogue
+
+# ── shared secrets ──────────────────────────────────────────
+x-supabase-env: &supabase-env
+  POSTGRES_PASSWORD: postgres
+  JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+  ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+  SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+services:
+  # ── Postgres ─────────────────────────────────────────────
+  supabase-db:
+    image: public.ecr.aws/supabase/postgres:17.6.1.075
+    container_name: epilogue-supabase-db
+    restart: unless-stopped
+    ports:
+      - "54322:5432"
+    networks:
+      default:
+        aliases:
+          - db
+    environment:
+      <<: *supabase-env
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: /var/run/postgresql
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./docker/init/00-roles.sql:/docker-entrypoint-initdb.d/migrations/00-roles.sql:ro
+      - ./backend/supabase_schema.sql:/docker-entrypoint-initdb.d/migrations/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supabase_admin -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ── GoTrue (Auth) ────────────────────────────────────────
+  supabase-auth:
+    image: public.ecr.aws/supabase/gotrue:v2.186.0
+    container_name: epilogue-supabase-auth
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:54321
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:postgres@supabase-db:5432/postgres
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_URI_ALLOW_LIST: ""
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@email.com
+      GOTRUE_SMTP_HOST: supabase-inbucket
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_SENDER_NAME: fake
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+
+  # ── PostgREST (REST API) ────────────────────────────────
+  supabase-rest:
+    image: public.ecr.aws/supabase/postgrest:v14.3
+    container_name: epilogue-supabase-rest
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@supabase-db:5432/postgres
+      PGRST_DB_SCHEMAS: public,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      PGRST_APP_SETTINGS_JWT_EXP: 3600
+
+  # ── Kong (API gateway – routes /auth, /rest, /storage) ──
+  supabase-kong:
+    image: public.ecr.aws/supabase/kong:2.8.1
+    container_name: epilogue-supabase-kong
+    restart: unless-stopped
+    ports:
+      - "54321:8000"
+      - "54320:8443"
+    depends_on:
+      supabase-auth:
+        condition: service_started
+      supabase-rest:
+        condition: service_started
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+    volumes:
+      - ./docker/kong.yml:/home/kong/kong.yml:ro
+
+  # ── Supabase Studio (Dashboard UI) ──────────────────────
+  supabase-studio:
+    image: public.ecr.aws/supabase/studio:2026.01.27-sha-2a37755
+    container_name: epilogue-supabase-studio
+    restart: unless-stopped
+    ports:
+      - "54323:3000"
+    depends_on:
+      supabase-kong:
+        condition: service_started
+    environment:
+      STUDIO_PG_META_URL: http://supabase-meta:8080
+      POSTGRES_PASSWORD: postgres
+      DEFAULT_ORGANIZATION_NAME: Epilogue
+      DEFAULT_PROJECT_NAME: epilogue-app
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_PUBLIC_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+  # ── PG Meta (metadata API for Studio) ───────────────────
+  supabase-meta:
+    image: public.ecr.aws/supabase/postgres-meta:v0.95.2
+    container_name: epilogue-supabase-meta
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: supabase-db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: postgres
+
+  # ── Inbucket (email testing) ─────────────────────────────
+  supabase-inbucket:
+    image: public.ecr.aws/supabase/mailpit:v1.22.3
+    container_name: epilogue-supabase-inbucket
+    restart: unless-stopped
+    ports:
+      - "54324:8025"   # Web UI
+      - "54325:1025"   # SMTP
+
+  # ── Storage ──────────────────────────────────────────────
+  supabase-storage:
+    image: public.ecr.aws/supabase/storage-api:v1.35.3
+    container_name: epilogue-supabase-storage
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-rest:
+        condition: service_started
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      POSTGREST_URL: http://supabase-rest:3000
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      DATABASE_URL: postgres://supabase_storage_admin:postgres@supabase-db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+      IS_MULTITENANT: "false"
+    volumes:
+      - supabase-storage-data:/var/lib/storage
+
+  # ── Realtime ─────────────────────────────────────────────
+  supabase-realtime:
+    image: public.ecr.aws/supabase/realtime:v2.73.2
+    container_name: epilogue-supabase-realtime
+    restart: unless-stopped
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      APP_NAME: realtime
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      SECRET_KEY_BASE: UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILSCALE: "false"
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: 10000
+
+  # ════════════════════════════════════════════════════════
+  # ── Epilogue FastAPI Backend ────────────────────────────
+  # ════════════════════════════════════════════════════════
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: epilogue-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    environment:
+      # Supabase connection (points to the Kong gateway inside the Docker network)
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      USE_SUPABASE: "true"
+      # Direct Postgres for migrations / schema apply
+      DATABASE_URL: postgresql://postgres:postgres@supabase-db:5432/postgres
+      # JWT
+      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+      # CORS
+      CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      # Frontend URL for magic links
+      FRONTEND_URL: http://localhost:3000
+    volumes:
+      - ./backend:/app   # live-reload during development
+
+volumes:
+  supabase-db-data:
+  supabase-storage-data:
